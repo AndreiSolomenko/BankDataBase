@@ -23,6 +23,7 @@ public class App {
                     System.out.println("5: transfer from account to account");
                     System.out.println("6: currencies converted inside client accounts");
                     System.out.println("7: total amount on client accounts in UAH");
+                    System.out.println("8: view all transactions");
                     System.out.print("-> ");
 
                     String s = sc.nextLine();
@@ -47,6 +48,9 @@ public class App {
                             break;
                         case "7":
                             totalAmountOnClientAccountsInUah(sc);
+                            break;
+                        case "8":
+                            viewAllTransactions();
                             break;
                         default:
                             return;
@@ -138,6 +142,10 @@ public class App {
         } else if (currency.equals("usd")) {
             c.getAccounts().setUsd(c.getAccounts().getUsd() + sum);
         }
+
+        Transactions transaction = new Transactions(id, currency, "+" + sSum);
+        em.persist(transaction);
+
         em.getTransaction().commit();
     }
 
@@ -169,6 +177,12 @@ public class App {
             cFrom.getAccounts().setUsd(cFrom.getAccounts().getUsd() - sum);
             cTo.getAccounts().setUsd(cTo.getAccounts().getUsd() + sum);
         }
+
+        Transactions transactionFrom = new Transactions(idFrom, currency, "-" + sSum);
+        em.persist(transactionFrom);
+        Transactions transactionTo = new Transactions(id, currency, "+" + sSum);
+        em.persist(transactionTo);
+
         em.getTransaction().commit();
     }
 
@@ -189,16 +203,20 @@ public class App {
         em.getTransaction().begin();
 
         ExchangeRates er = new ExchangeRates();
+        Transactions transactionTo = null;
 
         if (currencyFrom.equals("uah")) {
             c.getAccounts().setUah(c.getAccounts().getUah() - sum);
 
             if (currencyTo.equals("uah")) {
                 c.getAccounts().setUah(c.getAccounts().getUah() + sum);
+                transactionTo = new Transactions(id, currencyTo, "+" + sum);
             } else if (currencyTo.equals("eur")) {
                 c.getAccounts().setEur(c.getAccounts().getEur() + (sum / er.getEur()));
+                transactionTo = new Transactions(id, currencyTo, "+" + (sum / er.getEur()));
             } else if (currencyTo.equals("usd")) {
                 c.getAccounts().setUsd(c.getAccounts().getUsd() + (sum / er.getUsd()));
+                transactionTo = new Transactions(id, currencyTo, "+" + (sum / er.getUsd()));
             }
 
         } else if (currencyFrom.equals("eur")) {
@@ -206,10 +224,13 @@ public class App {
 
             if (currencyTo.equals("uah")) {
                 c.getAccounts().setUah(c.getAccounts().getUah() + (sum * er.getEur()));
+                transactionTo = new Transactions(id, currencyTo, "+" + (sum * er.getEur()));
             } else if (currencyTo.equals("eur")) {
                 c.getAccounts().setEur(c.getAccounts().getEur() + sum);
+                transactionTo = new Transactions(id, currencyTo, "+" + sum);
             } else if (currencyTo.equals("usd")) {
                 c.getAccounts().setUsd(c.getAccounts().getUsd() + (sum * (er.getEur() / er.getUsd())));
+                transactionTo = new Transactions(id, currencyTo, "+" + (er.getEur() / er.getUsd()));
             }
 
         } else if (currencyFrom.equals("usd")) {
@@ -217,12 +238,20 @@ public class App {
 
             if (currencyTo.equals("uah")) {
                 c.getAccounts().setUah(c.getAccounts().getUah() + (sum * er.getUsd()));
+                transactionTo = new Transactions(id, currencyTo, "+" + (sum * er.getUsd()));
             } else if (currencyTo.equals("eur")) {
                 c.getAccounts().setEur(c.getAccounts().getEur() + (sum * (er.getUsd() / er.getEur())));
+                transactionTo = new Transactions(id, currencyTo, "+" + (er.getUsd() / er.getEur()));
             } else if (currencyTo.equals("usd")) {
                 c.getAccounts().setUsd(c.getAccounts().getUsd() + sum);
+                transactionTo = new Transactions(id, currencyTo, "+" + sum);
             }
         }
+
+        Transactions transactionFrom = new Transactions(id, currencyFrom, "-" + sSum);
+        em.persist(transactionFrom);
+        em.persist(transactionTo);
+
         em.getTransaction().commit();
     }
 
@@ -237,12 +266,21 @@ public class App {
 
         ExchangeRates er = new ExchangeRates();
 
+
         System.out.println("Total amount on client accounts in UAH: " +
                             ((c.getAccounts().getUah() * er.getUah()) +
                              (c.getAccounts().getEur() * er.getEur()) +
                              (c.getAccounts().getUsd() * er.getUsd())));
 
         em.getTransaction().commit();
+    }
+
+    private static void viewAllTransactions() {
+        Query query = em.createQuery("SELECT c FROM Transactions c", Transactions.class);
+        List<Transactions> list = (List<Transactions>) query.getResultList();
+
+        for (Transactions c : list)
+            System.out.println(c);
     }
 
 }
